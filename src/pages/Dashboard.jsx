@@ -59,7 +59,7 @@ const Dashboard = () => {
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold mb-2">
-              Welcome back, {user?.displayName || 'Student'}! 👋
+              Welcome back, {user?.displayName || 'Student'}!
             </h1>
             <p className="text-blue-100">
               You're on a 7-day streak! Keep up the great work.
@@ -67,7 +67,7 @@ const Dashboard = () => {
           </div>
           <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 text-center">
             <p className="text-sm text-blue-100">Current Streak</p>
-            <p className="text-3xl font-bold">7 🔥</p>
+            <p className="text-3xl font-bold">7</p>
           </div>
         </div>
       </div>

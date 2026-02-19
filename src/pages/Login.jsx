@@ -1,22 +1,24 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { FcGoogle } from "react-icons/fc";
-import { signInWithGoogle, signOut, auth } from "../config/firebase";
+import { signInWithGoogle, logOut } from "../config/firebase";
+import { useAuth } from "../hooks/useAuth";
 
 function Login() {
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [isSignup, setIsSignup] = useState(false);
   const [error, setError] = useState("");
-  const [usePhone, setUsePhone] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
-  // Hardcoded credentials
-  const VALID_CREDENTIALS = {
-    username: "admin",
-    password: "admin123"
-  };
+  // Strict "Start at Login" enforcement:
+  // We removed the auto-redirect useEffect so users ALWAYS land on the login page.
+  // They are not allowed to "skip" this entry point.
 
-  const handleLoginSubmit = (e) => {
+  if (authLoading) return <div style={{ height: "100vh", background: "#fff" }} />;
+
+  const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setLoading(true);
@@ -30,71 +32,56 @@ function Login() {
       return;
     }
 
-    setTimeout(() => {
-      if (username === VALID_CREDENTIALS.username && password === VALID_CREDENTIALS.password) {
-        setError("");
-        navigate("/dashboard");
-      } else {
-        setError("Invalid username or password");
+    try {
+      const res = await fetch("http://localhost:5000/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Invalid credentials");
+
+      if (data.role === "admin") {
+        throw new Error("Admins must use the Admin Login page");
       }
+
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("role", data.role);
+      localStorage.setItem("userId", data.userId);
+
+      navigate("/dashboard");
+    } catch (err) {
+      setError(err.message);
+    } finally {
       setLoading(false);
-    }, 500);
+    }
   };
 
-  const handleSignupSubmit = (e) => {
+  const handleSignupSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
-    if (usePhone) {
-      const phone = e.target.phone.value;
-      if (!phone) {
-        setError("Please fill all fields");
-        setLoading(false);
-        return;
-      }
-      if (phone.length < 10) {
-        setError("Please enter a valid phone number");
-        setLoading(false);
-        return;
-      }
-      setTimeout(() => {
-        alert("Account created successfully!");
-        navigate("/dashboard");
-      }, 500);
-    } else {
-      const username = e.target.username.value;
-      const password = e.target.password.value;
+    const username = e.target.username?.value;
+    const email = e.target.email?.value;
+    const password = e.target.password?.value;
 
-      if (!username || !password) {
-        setError("Please fill all fields");
-        setLoading(false);
-        return;
-      }
-      setTimeout(() => {
-        alert("Account created successfully!");
-        navigate("/dashboard");
-      }, 500);
-    }
-  };
-//google login handler
-  const handleGoogleLogin = async () => {
-    setLoading(true);
     try {
-      const user = await signInWithGoogle();
-      const email = user.email;
+      const res = await fetch("http://localhost:5000/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, email, password }),
+      });
 
-      if (!email.endsWith("@bitsathy.ac.in")) {
-        await signOut(auth);
-        alert("Only @bitsathy.ac.in accounts are allowed");
-        setLoading(false);
-        return;
-      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Signup failed");
 
-      navigate("/dashboard");
+      alert("Account created successfully! Please login.");
+      setIsSignup(false);
     } catch (err) {
-      console.error(err);
-      alert(err.message);
+      setError(err.message);
+    } finally {
       setLoading(false);
     }
   };
@@ -102,241 +89,343 @@ function Login() {
   const handleToggle = () => {
     setIsSignup(!isSignup);
     setError("");
-    setUsePhone(false);
+    setShowPassword(false);
   };
 
-  const togglePhoneAuth = () => {
-    setUsePhone(!usePhone);
+  const handleGoogleLogin = async () => {
     setError("");
+    setLoading(true);
+    try {
+      const user = await signInWithGoogle();
+      // Store session for ProtectedRoute
+      localStorage.setItem("token", "firebase-google-session");
+      localStorage.setItem("role", "student");
+      localStorage.setItem("userId", user.uid);
+      navigate("/dashboard");
+    } catch (err) {
+      console.error(err);
+      setError(err.message || "Google sign-in failed");
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Animated Background Elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-blue-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse-slow"></div>
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse-slow animation-delay-2000"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-indigo-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse-slow animation-delay-4000"></div>
-      </div>
+    <div className="min-h-screen flex" style={{ fontFamily: "'Inter', sans-serif" }}>
+      {/* Left Panel – Branding */}
+      <div
+        className="hidden lg:flex lg:w-1/2 flex-col items-center justify-center p-12 relative overflow-hidden"
+        style={{
+          background: "linear-gradient(135deg, #1e3a8a 0%, #3730a3 40%, #6d28d9 100%)",
+        }}
+      >
+        {/* Decorative blobs */}
+        <div
+          style={{
+            position: "absolute", top: "-80px", right: "-80px",
+            width: "320px", height: "320px",
+            background: "rgba(255,255,255,0.07)",
+            borderRadius: "50%",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute", bottom: "-100px", left: "-60px",
+            width: "280px", height: "280px",
+            background: "rgba(255,255,255,0.05)",
+            borderRadius: "50%",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute", top: "40%", left: "60%",
+            width: "180px", height: "180px",
+            background: "rgba(255,255,255,0.04)",
+            borderRadius: "50%",
+          }}
+        />
 
-      {/* Main Container */}
-      <div className="relative w-full max-w-6xl">
-        <div className={`grid lg:grid-cols-2 gap-0 bg-white rounded-3xl shadow-2xl overflow-hidden transition-all duration-700 ${isSignup ? 'lg:flex-row-reverse' : ''}`}>
-          
-          {/* Form Section */}
-          <div className={`p-8 lg:p-12 flex items-center justify-center order-2 lg:order-${isSignup ? '2' : '1'}`}>
-            <div className="w-full max-w-md">
-              <div className="text-center mb-8">
-                <h2 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-2">
-                  {isSignup ? 'Create Account' : 'Welcome Back'}
-                </h2>
-                <p className="text-gray-600">
-                  {isSignup ? 'Sign up to get started' : 'Log in to continue'}
-                </p>
-              </div>
-
-              {!isSignup ? (
-                // LOGIN FORM
-                <form onSubmit={handleLoginSubmit} className="space-y-5">
-                  {error && (
-                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
-                      {error}
-                    </div>
-                  )}
-                  
-                  <div>
-                    <input 
-                      type="text" 
-                      name="username" 
-                      placeholder="Username" 
-                      // required
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
-                    />
-                  </div>
-
-                  <div>
-                    <input 
-                      type="password" 
-                      name="password" 
-                      placeholder="Password" 
-                      // required
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
-                    />
-                  </div>
-                  
-
-                  {/* <div className="text-right">
-                    <a href="#forgot" className="text-sm text-blue-600 hover:text-blue-800">
-                      Forgot password?
-                    </a>
-                  </div> */}
-
-                  <button 
-                    type="submit" 
-                    disabled={loading}
-                    className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-3 rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-200 disabled:opacity-50"
-                  >
-                    {loading ? 'Logging in...' : 'Log In'}
-                  </button>
-
-                  <div className="relative my-6">
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-gray-300"></div>
-                    </div>
-                    <div className="relative flex justify-center text-sm">
-                      <span className="px-4 bg-white text-gray-500">OR</span>
-                    </div>
-                  </div>
-
-                  <button 
-                    type="button"
-                    onClick={handleGoogleLogin}
-                    disabled={loading}
-                    className="w-full flex items-center justify-center gap-3 px-4 py-3 border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50"
-                  >
-                    <FcGoogle size={24} />
-                    <span className="font-medium">Continue with Google</span>
-                  </button>
-
-                  <p className="text-center text-sm text-gray-600 mt-6">
-                    Don't have an account?{' '}
-                    <button 
-                      type="button"
-                      onClick={handleToggle} 
-                      className="text-blue-600 font-semibold hover:text-blue-800"
-                    >
-                      Sign Up
-                    </button>
-                  </p>
-                </form>
-              ) : (
-                // SIGNUP FORM
-                <form onSubmit={handleSignupSubmit} className="space-y-5">
-                  {error && (
-                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
-                      {error}
-                    </div>
-                  )}
-
-                  {!usePhone ? (
-                    <>
-                      <div>
-                        <input 
-                          type="text" 
-                          name="username" 
-                          placeholder="Username" 
-                          required
-                          autocomplete="off"
-                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
-                        />
-                      </div>
-                      <div>
-                        <input 
-                          type="email" 
-                          name="Email address" 
-                          placeholder="Email address" 
-                          required
-                          autocomplete="off"
-                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
-                        />
-                      </div>
-
-                      <div>
-                        <input 
-                          type="password" 
-                          name="password" 
-                          placeholder="Password" 
-                          required
-                          autoComplete="new-password"
-                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
-                        />
-                      </div>
-                    </>
-                  ) : (
-                    <div className="flex gap-2">
-                      {/* <select className="px-3 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"> */}
-                        {/* <option value="+1">+1</option>
-                        <option value="+91">+91</option>
-                        <option value="+44">+44</option>
-                        <option value="+86">+86</option>
-                        <option value="+81">+81</option>
-                      </select> */}
-                      <input 
-                        type="tel" 
-                        name="phone" 
-                        placeholder="Phone number" 
-                        required
-                        className="flex-1 px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
-                      />
-                    </div>
-                  )}
-
-                  <button 
-                    type="submit"
-                    disabled={loading}
-                    className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-3 rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-200 disabled:opacity-50"
-                  >
-                    {loading ? 'Creating Account...' : 'Sign Up'}
-                  </button>
-
-                  <div className="relative my-6">
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-gray-300"></div>
-                    </div>
-                    <div className="relative flex justify-center text-sm">
-                      <span className="px-4 bg-white text-gray-500">OR</span>
-                    </div>
-                  </div>
-
-                  <button 
-                    type="button"
-                    onClick={handleGoogleLogin}
-                    disabled={loading}
-                    className="w-full flex items-center justify-center gap-3 px-4 py-3 border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50"
-                  >
-                    <FcGoogle size={24} />
-                    <span className="font-medium">Continue with Google</span>
-                  </button>
-
-                  <p className="text-center text-sm text-gray-600 mt-6">
-                    Already have an account?{' '}
-                    <button 
-                      type="button"
-                      onClick={handleToggle} 
-                      className="text-blue-600 font-semibold hover:text-blue-800"
-                    >
-                      Log In
-                    </button>
-                  </p>
-                </form>
-              )}
-            </div>
+        <div className="relative z-10 text-center text-white space-y-6 max-w-md">
+          {/* Logo */}
+          <div
+            style={{
+              width: "80px", height: "80px",
+              background: "rgba(255,255,255,0.15)",
+              borderRadius: "24px",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              margin: "0 auto",
+              backdropFilter: "blur(10px)",
+              border: "1px solid rgba(255,255,255,0.2)",
+              boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
+            }}
+          >
+            <svg width="40" height="40" fill="none" stroke="white" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+                d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
           </div>
 
-          {/* Welcome Section */}
-          <div className={`bg-gradient-to-br from-blue-500 to-indigo-600 p-8 lg:p-12 flex items-center justify-center text-white order-1 lg:order-${isSignup ? '1' : '2'}`}>
-            <div className="text-center space-y-6">
-              <div className="w-24 h-24 mx-auto bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
-                <div className="w-16 h-16 bg-white/30 rounded-full flex items-center justify-center">
-                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                  </svg>
+          <div>
+            <h1 style={{ fontSize: "2.8rem", fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.02em" }}>
+              BIT Test Portal
+            </h1>
+            <p style={{ fontSize: "1.1rem", opacity: 0.8, marginTop: "12px", lineHeight: 1.6 }}>
+              Your gateway to smarter learning. Practice, compete, and excel.
+            </p>
+          </div>
+          {/* <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "8px" }}>
+            {[
+              { icon: "🎯", text: "Level-based MCQ Tests" },
+              { icon: "💻", text: "Live Code Editor" },
+              { icon: "📊", text: "Detailed Performance Analytics" },
+            ].map((f, i) => (
+              <div
+                key={i}
+                style={{
+                  display: "flex", alignItems: "center", gap: "12px",
+                  background: "rgba(255,255,255,0.1)",
+                  borderRadius: "12px", padding: "12px 16px",
+                  backdropFilter: "blur(8px)",
+                  border: "1px solid rgba(255,255,255,0.15)",
+                }}
+              >
+                <span style={{ fontSize: "1.3rem" }}>{f.icon}</span>
+                <span style={{ fontWeight: 500, opacity: 0.95 }}>{f.text}</span>
+              </div>
+            ))}
+          </div>*/}
+        </div>
+      </div>
+      <div
+        className="w-full lg:w-1/2 flex items-center justify-center p-6 lg:p-12"
+        style={{ background: "#f8fafc" }}
+      >
+        <div style={{ width: "100%", maxWidth: "420px" }}>
+          {/* Mobile logo */}
+          <div className="lg:hidden text-center mb-8">
+            <h1 style={{
+              fontSize: "1.8rem", fontWeight: 800,
+              background: "linear-gradient(135deg, #1e3a8a, #6d28d9)",
+              WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+            }}>
+              BIT Test Portal
+            </h1>
+          </div>
+
+          {/* Card */}
+          <div
+            style={{
+              background: "white",
+              borderRadius: "24px",
+              padding: "40px",
+              boxShadow: "0 4px 40px rgba(0,0,0,0.08)",
+              border: "1px solid rgba(0,0,0,0.06)",
+            }}
+          >
+            <div style={{ marginBottom: "28px" }}>
+              <h2 style={{ fontSize: "1.7rem", fontWeight: 700, color: "#0f172a", marginBottom: "6px" }}>
+                {isSignup ? "Create Account" : "Welcome back"}
+              </h2>
+              <p style={{ color: "#64748b", fontSize: "0.95rem" }}>
+                {isSignup
+                  ? "Sign up to start your learning journey"
+                  : "Sign in to your student account"}
+              </p>
+            </div>
+
+            {/* Toggle tabs */}
+            <div
+              style={{
+                display: "flex", background: "#f1f5f9",
+                borderRadius: "12px", padding: "4px", marginBottom: "24px",
+              }}
+            >
+              {["Login", "Sign Up"].map((tab, i) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => { setIsSignup(i === 1); setError(""); setShowPassword(false); }}
+                  style={{
+                    flex: 1, padding: "8px 0", borderRadius: "10px",
+                    border: "none", cursor: "pointer", fontWeight: 600,
+                    fontSize: "0.9rem", transition: "all 0.2s",
+                    background: isSignup === (i === 1) ? "white" : "transparent",
+                    color: isSignup === (i === 1) ? "#1e3a8a" : "#64748b",
+                    boxShadow: isSignup === (i === 1) ? "0 2px 8px rgba(0,0,0,0.1)" : "none",
+                  }}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+
+            <form onSubmit={isSignup ? handleSignupSubmit : handleLoginSubmit} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              {error && (
+                <div
+                  style={{
+                    background: "#fef2f2", border: "1px solid #fecaca",
+                    color: "#dc2626", padding: "12px 16px",
+                    borderRadius: "12px", fontSize: "0.875rem",
+                    display: "flex", alignItems: "center", gap: "8px",
+                  }}
+                >
+                  <span>⚠️</span> {error}
+                </div>
+              )}
+
+              {/* Username */}
+              <div>
+                <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, color: "#374151", marginBottom: "6px" }}>
+                  Username
+                </label>
+                <input
+                  type="text"
+                  name="username"
+                  placeholder="Enter your username"
+                  required
+                  style={{
+                    width: "100%", padding: "12px 16px",
+                    border: "2px solid #e2e8f0", borderRadius: "12px",
+                    fontSize: "0.95rem", outline: "none",
+                    transition: "border-color 0.2s",
+                    boxSizing: "border-box",
+                  }}
+                  onFocus={e => e.target.style.borderColor = "#3730a3"}
+                  onBlur={e => e.target.style.borderColor = "#e2e8f0"}
+                />
+              </div>
+
+              {/* Email (signup only) */}
+              {isSignup && (
+                <div>
+                  <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, color: "#374151", marginBottom: "6px" }}>
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    placeholder="you@example.com"
+                    required
+                    style={{
+                      width: "100%", padding: "12px 16px",
+                      border: "2px solid #e2e8f0", borderRadius: "12px",
+                      fontSize: "0.95rem", outline: "none",
+                      transition: "border-color 0.2s",
+                      boxSizing: "border-box",
+                    }}
+                    onFocus={e => e.target.style.borderColor = "#3730a3"}
+                    onBlur={e => e.target.style.borderColor = "#e2e8f0"}
+                  />
+                </div>
+              )}
+
+              {/* Password */}
+              <div>
+                <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, color: "#374151", marginBottom: "6px" }}>
+                  Password
+                </label>
+                <div style={{ position: "relative" }}>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    name="password"
+                    placeholder="Enter your password"
+                    required
+                    style={{
+                      width: "100%", padding: "12px 48px 12px 16px",
+                      border: "2px solid #e2e8f0", borderRadius: "12px",
+                      fontSize: "0.95rem", outline: "none",
+                      transition: "border-color 0.2s",
+                      boxSizing: "border-box",
+                    }}
+                    onFocus={e => e.target.style.borderColor = "#3730a3"}
+                    onBlur={e => e.target.style.borderColor = "#e2e8f0"}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    style={{
+                      position: "absolute", right: "14px", top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "none", border: "none", cursor: "pointer",
+                      color: "#94a3b8", fontSize: "1.1rem",
+                    }}
+                  >
+                    {showPassword ? "🙈" : "👁️"}
+                  </button>
                 </div>
               </div>
-              <h1 className="text-5xl font-bold">
-                {isSignup ? 'Hello!' : 'Welcome Back!'}
-              </h1>
-              <p className="text-xl text-white/90 max-w-md mx-auto">
-                {isSignup 
-                  ? 'Start your learning journey with us today' 
-                  : 'Continue your learning journey with BIT Test Portal'
-                }
-              </p>
-              <div className="flex gap-4 justify-center pt-4">
-                <div className="w-16 h-1 bg-white/50 rounded-full"></div>
-                <div className="w-16 h-1 bg-white/30 rounded-full"></div>
-                <div className="w-16 h-1 bg-white/20 rounded-full"></div>
+
+              {/* Submit */}
+              <button
+                type="submit"
+                disabled={loading}
+                style={{
+                  width: "100%", padding: "13px",
+                  background: loading
+                    ? "#94a3b8"
+                    : "linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #6d28d9 100%)",
+                  color: "white", border: "none", borderRadius: "12px",
+                  fontSize: "1rem", fontWeight: 700, cursor: loading ? "not-allowed" : "pointer",
+                  transition: "all 0.2s",
+                  boxShadow: loading ? "none" : "0 4px 20px rgba(55,48,163,0.35)",
+                  marginTop: "4px",
+                }}
+                onMouseEnter={e => { if (!loading) e.target.style.transform = "translateY(-1px)"; }}
+                onMouseLeave={e => { e.target.style.transform = "translateY(0)"; }}
+              >
+                {loading
+                  ? (isSignup ? "Creating account..." : "Signing in...")
+                  : (isSignup ? "Create Account" : "Sign In")}
+              </button>
+
+              {/* OR Divider */}
+              <div style={{ display: "flex", alignItems: "center", gap: "12px", margin: "4px 0" }}>
+                <div style={{ flex: 1, height: "1px", background: "#e2e8f0" }} />
+                <span style={{ color: "#94a3b8", fontSize: "0.8rem", fontWeight: 500 }}>OR</span>
+                <div style={{ flex: 1, height: "1px", background: "#e2e8f0" }} />
               </div>
+
+              {/* Google Sign-In */}
+              <button
+                type="button"
+                onClick={handleGoogleLogin}
+                disabled={loading}
+                style={{
+                  width: "100%", padding: "12px",
+                  background: "white",
+                  border: "2px solid #e2e8f0", borderRadius: "12px",
+                  fontSize: "0.95rem", fontWeight: 600,
+                  cursor: loading ? "not-allowed" : "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
+                  color: "#374151",
+                  transition: "all 0.2s",
+                  boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+                  opacity: loading ? 0.6 : 1,
+                }}
+                onMouseEnter={e => { if (!loading) { e.target.style.borderColor = "#3730a3"; e.target.style.boxShadow = "0 4px 12px rgba(55,48,163,0.15)"; } }}
+                onMouseLeave={e => { e.target.style.borderColor = "#e2e8f0"; e.target.style.boxShadow = "0 1px 4px rgba(0,0,0,0.06)"; }}
+              >
+                <FcGoogle size={22} />
+                Continue with Google
+              </button>
+            </form>
+
+
+            {/* Admin link */}
+            <div style={{ textAlign: "center", marginTop: "24px" }}>
+              <button
+                type="button"
+                onClick={() => navigate("/admin/login")}
+                style={{
+                  background: "none", border: "none", cursor: "pointer",
+                  color: "#94a3b8", fontSize: "0.8rem",
+                  textDecoration: "underline",
+                  transition: "color 0.2s",
+                }}
+                onMouseEnter={e => e.target.style.color = "#475569"}
+                onMouseLeave={e => e.target.style.color = "#94a3b8"}
+              >
+                🔐 Admin Access
+              </button>
             </div>
           </div>
         </div>

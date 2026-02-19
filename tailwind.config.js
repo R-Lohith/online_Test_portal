@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: "class",   // ⭐ REQUIRED for dark mode
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
@@ -7,7 +8,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        border: "hsl(var(--border))",   // ✅ ADD THIS LINE
+        border: "hsl(var(--border))",
 
         primary: {
           50: '#f0f9ff',
@@ -38,7 +39,6 @@ export default {
         'fade-in': 'fadeIn 0.5s ease-in',
         'slide-up': 'slideUp 0.5s ease-out',
         'slide-down': 'slideDown 0.5s ease-out',
-        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
       },
       keyframes: {
         fadeIn: {
@@ -57,4 +57,4 @@ export default {
     },
   },
   plugins: [],
-}
+};

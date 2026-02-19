@@ -1,0 +1,8 @@
+{
+  "appId": "com.bit.app",
+  "appName": "bit-test-portal",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}

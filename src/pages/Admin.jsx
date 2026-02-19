@@ -1,327 +1,201 @@
-import { useState } from 'react';
-import { Search, Plus, Edit, Trash2, Users, FileText, TrendingUp, Award } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Users, Award, TrendingUp, FileText, Plus, PlusCircle } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
 
 const Admin = () => {
-  const [activeSection, setActiveSection] = useState('subjects');
-  const [searchQuery, setSearchQuery] = useState('');
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const adminName = user?.username || 'Administrator';
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
+  const [topics, setTopics] = useState([]);
+  const [loadingTopics, setLoadingTopics] = useState(true);
 
-  const sections = [
-    { id: 'subjects', name: 'Subjects', icon: FileText },
-    { id: 'questions', name: 'Questions', icon: Award },
-    { id: 'submissions', name: 'Submissions', icon: Users },
-    { id: 'analytics', name: 'Analytics', icon: TrendingUp },
-  ];
+  useEffect(() => {
+    fetch('/api/mcq/topics')
+      .then((r) => r.json())
+      .then((d) => setTopics(Array.isArray(d) ? d : []))
+      .catch(() => setTopics([]))
+      .finally(() => setLoadingTopics(false));
+  }, []);
 
-  const subjects = [
-    { id: 1, name: 'Data Structures', tests: 8, questions: 156, students: 245, avgScore: 78 },
-    { id: 2, name: 'Algorithms', tests: 6, questions: 128, students: 198, avgScore: 82 },
-    { id: 3, name: 'Web Development', tests: 7, questions: 142, students: 312, avgScore: 85 },
-    { id: 4, name: 'Database Systems', tests: 5, questions: 95, students: 189, avgScore: 88 },
-    { id: 5, name: 'Operating Systems', tests: 4, questions: 78, students: 156, avgScore: 75 },
-  ];
-
-  const questions = [
-    { id: 1, question: 'What is a stack?', subject: 'Data Structures', difficulty: 'Easy', usage: 45 },
-    { id: 2, question: 'Explain binary search algorithm', subject: 'Algorithms', difficulty: 'Medium', usage: 38 },
-    { id: 3, question: 'What is React Virtual DOM?', subject: 'Web Development', difficulty: 'Medium', usage: 52 },
-    { id: 4, question: 'Explain ACID properties', subject: 'Database Systems', difficulty: 'Hard', usage: 28 },
-    { id: 5, question: 'What is deadlock?', subject: 'Operating Systems', difficulty: 'Medium', usage: 41 },
-  ];
-
-  const submissions = [
-    { id: 1, student: 'John Doe', test: 'React Fundamentals', score: 92, time: '25 min', date: 'Feb 6, 2026' },
-    { id: 2, student: 'Jane Smith', test: 'JavaScript Advanced', score: 88, time: '38 min', date: 'Feb 6, 2026' },
-    { id: 3, student: 'Mike Johnson', test: 'Node.js Basics', score: 95, time: '22 min', date: 'Feb 5, 2026' },
-    { id: 4, student: 'Sarah Williams', test: 'SQL Queries', score: 85, time: '30 min', date: 'Feb 5, 2026' },
-    { id: 5, student: 'Tom Brown', test: 'Data Structures', score: 78, time: '42 min', date: 'Feb 4, 2026' },
-  ];
+  const totalQuestions = topics.reduce((s, t) => s + t.total, 0);
+  const totalTopics = topics.length;
 
   const stats = [
-    { label: 'Total Students', value: '1,248', change: '+12%', icon: Users, color: 'blue' },
-    { label: 'Total Tests', value: '42', change: '+5%', icon: FileText, color: 'green' },
-    { label: 'Questions Bank', value: '856', change: '+18%', icon: Award, color: 'purple' },
-    { label: 'Avg Performance', value: '82%', change: '+3%', icon: TrendingUp, color: 'orange' },
+    { label: 'Total Topics', value: loadingTopics ? '…' : totalTopics, icon: FileText, from: '#6366f1', to: '#8b5cf6' },
+    { label: 'Total Questions', value: loadingTopics ? '…' : totalQuestions, icon: Award, from: '#10b981', to: '#059669' },
+    { label: 'Active Students', value: '—', icon: Users, from: '#f59e0b', to: '#d97706' },
+    { label: 'Avg Performance', value: '—', icon: TrendingUp, from: '#3b82f6', to: '#2563eb' },
   ];
 
-  const difficultyColors = {
-    Easy: 'bg-green-100 text-green-700',
-    Medium: 'bg-yellow-100 text-yellow-700',
-    Hard: 'bg-red-100 text-red-700',
-  };
-
-  const filteredSubjects = subjects.filter(subject =>
-    subject.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const filteredQuestions = questions.filter(question =>
-    question.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    question.subject.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const filteredSubmissions = submissions.filter(submission =>
-    submission.student.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    submission.test.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const levelColors = { easy: '#10b981', medium: '#f59e0b', hard: '#ef4444' };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-8 text-white shadow-xl">
-        <h1 className="text-3xl font-bold mb-2">Admin Dashboard</h1>
-        <p className="text-indigo-100">Manage tests, questions, and monitor student performance</p>
+    <div style={{ fontFamily: 'Inter, sans-serif', minHeight: '100vh', padding: '0' }}>
+
+      {/* ── Welcome Banner ─────────────────────────────────────────────────── */}
+      <div style={{
+        background: 'linear-gradient(135deg, #1e3a8a 0%, #4f46e5 50%, #7c3aed 100%)',
+        borderRadius: 20, padding: '40px 48px', marginBottom: 32, color: '#fff',
+        boxShadow: '0 16px 48px rgba(79,70,229,0.35)', position: 'relative', overflow: 'hidden',
+      }}>
+        {/* Decorative circles */}
+        <div style={{ position: 'absolute', top: -60, right: -60, width: 220, height: 220, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
+        <div style={{ position: 'absolute', bottom: -40, left: '30%', width: 160, height: 160, borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
+
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 10 }}>
+            <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.25)', fontSize: '1.5rem', flexShrink: 0 }}>
+              👤
+            </div>
+            <div>
+              <p style={{ margin: 0, fontSize: '0.82rem', opacity: 0.75, letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600 }}>{greeting} 👋 &nbsp;·&nbsp; BIT Test Portal</p>
+              <h1 style={{ margin: '4px 0 0', fontSize: '2rem', fontWeight: 800, letterSpacing: '-0.01em' }}>Welcome, {adminName}!</h1>
+            </div>
+          </div>
+          <p style={{ margin: '6px 0 0', opacity: 0.8, fontSize: '1rem', maxWidth: 560, lineHeight: 1.65 }}>
+            Manage your MCQ question bank — add questions manually or generate them instantly using AI.
+          </p>
+
+          {/* Quick action button */}
+          <button
+            onClick={() => navigate('/admin/questions')}
+            style={{
+              marginTop: 24, padding: '13px 28px', background: 'rgba(255,255,255,0.18)',
+              border: '2px solid rgba(255,255,255,0.4)', borderRadius: 50, color: '#fff',
+              fontWeight: 700, fontSize: '0.98rem', cursor: 'pointer', backdropFilter: 'blur(8px)',
+              display: 'inline-flex', alignItems: 'center', gap: 8, transition: 'all 0.2s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.28)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.18)'; }}
+          >
+            <PlusCircle size={18} />
+            Manage Question Bank
+          </button>
+        </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, index) => {
-          const Icon = stat.icon;
-          const colorClasses = {
-            blue: 'from-blue-500 to-blue-600',
-            green: 'from-green-500 to-green-600',
-            purple: 'from-purple-500 to-purple-600',
-            orange: 'from-orange-500 to-orange-600',
-          };
-          
+      {/* ── Stats Row ──────────────────────────────────────────────────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 18, marginBottom: 32 }}>
+        {stats.map((s, i) => {
+          const Icon = s.icon;
           return (
-            <div key={index} className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-              <div className="flex items-center justify-between mb-4">
-                <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${colorClasses[stat.color]} flex items-center justify-center`}>
-                  <Icon className="text-white" size={24} />
-                </div>
-                <span className="text-green-600 text-sm font-semibold">{stat.change}</span>
+            <div key={i} style={{ background: '#fff', borderRadius: 16, padding: '24px 20px', boxShadow: '0 2px 16px rgba(0,0,0,0.06)', transition: 'transform 0.2s, box-shadow 0.2s' }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.1)'; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 16px rgba(0,0,0,0.06)'; }}
+            >
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: `linear-gradient(135deg,${s.from},${s.to})`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
+                <Icon size={22} color="#fff" />
               </div>
-              <h3 className="text-gray-600 text-sm font-medium">{stat.label}</h3>
-              <p className="text-3xl font-bold text-gray-800 mt-1">{stat.value}</p>
+              <p style={{ margin: '0 0 4px', fontSize: '0.8rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{s.label}</p>
+              <p style={{ margin: 0, fontSize: '2rem', fontWeight: 800, color: '#1e293b' }}>{s.value}</p>
             </div>
           );
         })}
       </div>
 
-      {/* Tabs */}
-      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-        <div className="border-b border-gray-200">
-          <div className="flex overflow-x-auto">
-            {sections.map((section) => {
-              const Icon = section.icon;
-              return (
-                <button
-                  key={section.id}
-                  onClick={() => setActiveSection(section.id)}
-                  className={`flex items-center gap-2 px-6 py-4 font-medium whitespace-nowrap transition-all ${
-                    activeSection === section.id
-                      ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50'
-                      : 'text-gray-600 hover:bg-gray-50'
-                  }`}
-                >
-                  <Icon size={20} />
-                  <span>{section.name}</span>
-                </button>
-              );
-            })}
+      {/* ── Add Questions Card ─────────────────────────────────────────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 32 }}>
+
+        {/* Manual Entry */}
+        <div style={{ background: '#fff', borderRadius: 18, padding: '28px', boxShadow: '0 2px 16px rgba(0,0,0,0.06)', border: '2px solid #e0e7ff', cursor: 'pointer', transition: 'all 0.2s' }}
+          onClick={() => navigate('/admin/questions')}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = '#6366f1'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(99,102,241,0.2)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = '#e0e7ff'; e.currentTarget.style.boxShadow = '0 2px 16px rgba(0,0,0,0.06)'; e.currentTarget.style.transform = 'none'; }}
+        >
+          <div style={{ width: 50, height: 50, borderRadius: 14, background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+            <Plus size={26} color="#fff" />
           </div>
+          <h3 style={{ margin: '0 0 8px', fontSize: '1.2rem', fontWeight: 700, color: '#1e293b' }}>Manual Entry</h3>
+          <p style={{ margin: '0 0 18px', color: '#64748b', fontSize: '0.9rem', lineHeight: 1.55 }}>
+            Write your own questions with custom options. Choose topic, level, and mark the correct answer.
+          </p>
+          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#6366f1', display: 'flex', alignItems: 'center', gap: 5 }}>
+            Go to Manual Entry →
+          </span>
         </div>
 
-        <div className="p-6">
-          {/* Search Bar */}
-          <div className="mb-6 flex flex-col sm:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-              <input
-                type="text"
-                placeholder={`Search ${activeSection}...`}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:outline-none transition-colors"
-              />
-            </div>
-            <button className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-indigo-500/30 transition-all duration-200">
-              <Plus size={20} />
-              <span>Add New</span>
-            </button>
+        {/* AI Generate */}
+        <div style={{ background: '#fff', borderRadius: 18, padding: '28px', boxShadow: '0 2px 16px rgba(0,0,0,0.06)', border: '2px solid #ede9fe', cursor: 'pointer', transition: 'all 0.2s' }}
+          onClick={() => navigate('/admin/questions')}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = '#7c3aed'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(124,58,237,0.2)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = '#ede9fe'; e.currentTarget.style.boxShadow = '0 2px 16px rgba(0,0,0,0.06)'; e.currentTarget.style.transform = 'none'; }}
+        >
+          <div style={{ width: 50, height: 50, borderRadius: 14, background: 'linear-gradient(135deg,#7c3aed,#6d28d9)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16, fontSize: '1.5rem' }}>
+            🤖
           </div>
-
-          {/* Subjects Section */}
-          {activeSection === 'subjects' && (
-            <div className="space-y-4">
-              {filteredSubjects.map((subject) => (
-                <div key={subject.id} className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl hover:shadow-md transition-shadow">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="flex-1">
-                      <h3 className="text-xl font-bold text-gray-800 mb-3">{subject.name}</h3>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div>
-                          <p className="text-sm text-gray-600">Tests</p>
-                          <p className="text-lg font-bold text-gray-800">{subject.tests}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-600">Questions</p>
-                          <p className="text-lg font-bold text-gray-800">{subject.questions}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-600">Students</p>
-                          <p className="text-lg font-bold text-gray-800">{subject.students}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-600">Avg Score</p>
-                          <p className="text-lg font-bold text-gray-800">{subject.avgScore}%</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button className="p-3 bg-white rounded-lg hover:bg-gray-100 transition-colors">
-                        <Edit size={20} className="text-blue-600" />
-                      </button>
-                      <button className="p-3 bg-white rounded-lg hover:bg-gray-100 transition-colors">
-                        <Trash2 size={20} className="text-red-600" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Questions Section */}
-          {activeSection === 'questions' && (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b-2 border-gray-200">
-                    <th className="text-left py-4 px-4 font-semibold text-gray-700">Question</th>
-                    <th className="text-left py-4 px-4 font-semibold text-gray-700">Subject</th>
-                    <th className="text-left py-4 px-4 font-semibold text-gray-700">Difficulty</th>
-                    <th className="text-left py-4 px-4 font-semibold text-gray-700">Usage</th>
-                    <th className="text-left py-4 px-4 font-semibold text-gray-700">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredQuestions.map((question) => (
-                    <tr key={question.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                      <td className="py-4 px-4 font-medium text-gray-800">{question.question}</td>
-                      <td className="py-4 px-4 text-gray-600">{question.subject}</td>
-                      <td className="py-4 px-4">
-                        <span className={`px-3 py-1 rounded-full text-sm font-semibold ${difficultyColors[question.difficulty]}`}>
-                          {question.difficulty}
-                        </span>
-                      </td>
-                      <td className="py-4 px-4 text-gray-600">{question.usage} times</td>
-                      <td className="py-4 px-4">
-                        <div className="flex gap-2">
-                          <button className="p-2 hover:bg-blue-50 rounded-lg transition-colors">
-                            <Edit size={18} className="text-blue-600" />
-                          </button>
-                          <button className="p-2 hover:bg-red-50 rounded-lg transition-colors">
-                            <Trash2 size={18} className="text-red-600" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* Submissions Section */}
-          {activeSection === 'submissions' && (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b-2 border-gray-200">
-                    <th className="text-left py-4 px-4 font-semibold text-gray-700">Student</th>
-                    <th className="text-left py-4 px-4 font-semibold text-gray-700">Test</th>
-                    <th className="text-left py-4 px-4 font-semibold text-gray-700">Score</th>
-                    <th className="text-left py-4 px-4 font-semibold text-gray-700">Time</th>
-                    <th className="text-left py-4 px-4 font-semibold text-gray-700">Date</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredSubmissions.map((submission) => (
-                    <tr key={submission.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                      <td className="py-4 px-4 font-medium text-gray-800">{submission.student}</td>
-                      <td className="py-4 px-4 text-gray-600">{submission.test}</td>
-                      <td className="py-4 px-4">
-                        <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                          submission.score >= 90 ? 'bg-green-100 text-green-700' :
-                          submission.score >= 75 ? 'bg-yellow-100 text-yellow-700' :
-                          'bg-red-100 text-red-700'
-                        }`}>
-                          {submission.score}%
-                        </span>
-                      </td>
-                      <td className="py-4 px-4 text-gray-600">{submission.time}</td>
-                      <td className="py-4 px-4 text-gray-600">{submission.date}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* Analytics Section */}
-          {activeSection === 'analytics' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="p-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border-l-4 border-green-500">
-                <h3 className="font-bold text-gray-800 mb-4">Top Performing Students</h3>
-                <div className="space-y-3">
-                  {[
-                    { name: 'John Doe', score: 95, tests: 12 },
-                    { name: 'Jane Smith', score: 93, tests: 11 },
-                    { name: 'Mike Johnson', score: 91, tests: 10 },
-                  ].map((student, i) => (
-                    <div key={i} className="flex items-center justify-between p-3 bg-white rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white font-bold text-sm">
-                          {i + 1}
-                        </div>
-                        <div>
-                          <p className="font-semibold text-gray-800">{student.name}</p>
-                          <p className="text-sm text-gray-500">{student.tests} tests completed</p>
-                        </div>
-                      </div>
-                      <span className="text-lg font-bold text-green-600">{student.score}%</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border-l-4 border-blue-500">
-                <h3 className="font-bold text-gray-800 mb-4">Most Popular Tests</h3>
-                <div className="space-y-3">
-                  {[
-                    { name: 'React Fundamentals', attempts: 245 },
-                    { name: 'JavaScript Advanced', attempts: 198 },
-                    { name: 'Node.js Basics', attempts: 156 },
-                  ].map((test, i) => (
-                    <div key={i} className="flex items-center justify-between p-3 bg-white rounded-lg">
-                      <div>
-                        <p className="font-semibold text-gray-800">{test.name}</p>
-                        <p className="text-sm text-gray-500">{test.attempts} attempts</p>
-                      </div>
-                      <div className="w-16 h-16">
-                        <svg className="transform -rotate-90" viewBox="0 0 36 36">
-                          <path
-                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                            fill="none"
-                            stroke="#e5e7eb"
-                            strokeWidth="3"
-                          />
-                          <path
-                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                            fill="none"
-                            stroke="#3b82f6"
-                            strokeWidth="3"
-                            strokeDasharray={`${(test.attempts / 250) * 100}, 100`}
-                          />
-                        </svg>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
+          <h3 style={{ margin: '0 0 8px', fontSize: '1.2rem', fontWeight: 700, color: '#1e293b' }}>AI Generate</h3>
+          <p style={{ margin: '0 0 18px', color: '#64748b', fontSize: '0.9rem', lineHeight: 1.55 }}>
+            Let Gemini 2.5 Flash auto-generate MCQs for any topic instantly. Questions saved directly to MongoDB.
+          </p>
+          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#7c3aed', display: 'flex', alignItems: 'center', gap: 5 }}>
+            Go to AI Generate →
+          </span>
         </div>
+      </div>
+
+      {/* ── Question Bank Overview ─────────────────────────────────────────── */}
+      <div style={{ background: '#fff', borderRadius: 18, padding: '28px', boxShadow: '0 2px 16px rgba(0,0,0,0.06)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: '#1e293b' }}>📦 Question Bank Overview</h2>
+            <p style={{ margin: '4px 0 0', color: '#94a3b8', fontSize: '0.85rem' }}>Overview of all question topics and difficulty levels</p>
+          </div>
+          <button onClick={() => navigate('/admin/questions')} style={{ padding: '9px 20px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff', fontWeight: 700, fontSize: '0.88rem', cursor: 'pointer' }}>
+            + Add Questions
+          </button>
+        </div>
+
+        {loadingTopics ? (
+          <div style={{ textAlign: 'center', padding: '32px 0', color: '#94a3b8' }}>Loading…</div>
+        ) : topics.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px 0' }}>
+            <div style={{ fontSize: '3rem', marginBottom: 10 }}>📭</div>
+            <p style={{ color: '#94a3b8', fontSize: '1rem' }}>No questions yet. <button onClick={() => navigate('/admin/questions')} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}>Add questions now →</button></p>
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid #f1f5f9' }}>
+                  {['Topic', 'Easy', 'Medium', 'Hard', 'Total', ''].map(h => (
+                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: '0.78rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {topics.map((t) => {
+                  const getCount = (lvl) => t.levels.find(l => l.level === lvl)?.count || 0;
+                  return (
+                    <tr key={t.collectionName} style={{ borderBottom: '1px solid #f8fafc' }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#fafafa'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    >
+                      <td style={{ padding: '14px', fontWeight: 700, color: '#1e293b' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontSize: '0.95rem' }}>{t.displayName}</span>
+                        </div>
+                      </td>
+                      {['easy', 'medium', 'hard'].map(lvl => (
+                        <td key={lvl} style={{ padding: '14px' }}>
+                          {getCount(lvl) > 0
+                            ? <span style={{ background: `${levelColors[lvl]}18`, color: levelColors[lvl], padding: '4px 10px', borderRadius: 20, fontSize: '0.82rem', fontWeight: 700 }}>{getCount(lvl)}</span>
+                            : <span style={{ color: '#cbd5e1', fontSize: '0.82rem' }}>—</span>}
+                        </td>
+                      ))}
+                      <td style={{ padding: '14px', fontWeight: 800, color: '#1e293b' }}>{t.total}</td>
+                      <td style={{ padding: '14px' }}>
+                        <button onClick={() => navigate('/admin/questions')} style={{ padding: '6px 14px', borderRadius: 8, border: 'none', background: '#f1f5f9', color: '#6366f1', fontWeight: 700, cursor: 'pointer', fontSize: '0.82rem' }}>View →</button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

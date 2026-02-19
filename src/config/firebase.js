@@ -29,4 +29,5 @@ export const logOut = async () => {
   await signOut(auth);
 };
 
-export { signOut };
+// Export only the helpers used by the app
+export default app;
