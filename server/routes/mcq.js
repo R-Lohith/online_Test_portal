@@ -1,6 +1,10 @@
 import express from 'express';
 import mongoose from 'mongoose';
+import multer from 'multer';
+import { PDFParse } from 'pdf-parse';
 import { getTopicModel, sanitizeTopicName } from '../models/TopicQuestion.js';
+
+const upload = multer({ storage: multer.memoryStorage() });
 
 const router = express.Router();
 
@@ -198,6 +202,134 @@ Rules:
     });
   } catch (err) {
     console.error('AI generation error:', err.message);
+    return res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// POST /api/mcq/rag
+//
+// Extracts text from PDF, uses Gemini to generate MCQs, and stores them.
+// Body: FormData { pdf, topic, subject, level, count, customPrompt }
+// ════════════════════════════════════════════════════════════════════════════
+router.post('/rag', upload.single('pdf'), async (req, res) => {
+  try {
+    const { topic, subject = '', level = 'easy', count = 5, customPrompt = '' } = req.body;
+    const pdfFile = req.file;
+
+    if (!pdfFile) {
+      return res.status(400).json({ message: 'PDF file is required.' });
+    }
+    if (!topic) {
+      return res.status(400).json({ message: 'Topic is required.' });
+    }
+
+    const normLevel = normaliseLevel(level);
+    const n = Math.max(1, Math.min(20, parseInt(count, 10) || 5));
+    const collectionName = sanitizeTopicName(topic);
+
+    // ── Extract text from PDF ──────────────────────────────────────────────
+    let pdfText = '';
+    try {
+      const parser = new PDFParse({ data: pdfFile.buffer });
+      const result = await parser.getText();
+      pdfText = result.text;
+      await parser.destroy(); // Important to clean up
+    } catch (pdfErr) {
+      console.error('PDF Parse Error:', pdfErr);
+      return res.status(400).json({ message: 'Failed to parse PDF file.', error: pdfErr.message });
+    }
+
+    if (!pdfText.trim()) {
+      return res.status(400).json({ message: 'PDF file seems to be empty or contains no extractable text.' });
+    }
+
+    // ── Gemini prompt with PDF context ─────────────────────────────────────
+    const prompt = `You are an expert educator. I have provided content from a PDF below. 
+Your task is to generate exactly ${n} multiple choice questions about the topic "${topic}"${subject ? ` (subject: ${subject})` : ''} at ${normLevel} difficulty level, BASED ON THE PROVIDED PDF CONTENT.
+
+${customPrompt ? `Additional Instructions: ${customPrompt}\n` : ''}
+
+PDF CONTENT PREVIEW (first 8000 characters):
+${pdfText.substring(0, 8000)}
+
+Return ONLY a valid JSON array with no extra text. Each element must follow this structure:
+{
+  "questionText": "...",
+  "options": ["option A", "option B", "option C", "option D"],
+  "correctAnswer": "exact text of the correct option",
+  "correctIndex": 0
+}
+
+Rules:
+- Questions MUST be grounded in the provided PDF content.
+- Always provide exactly 4 options per question.
+- Return ONLY the JSON array.`;
+
+    // ── Call Gemini REST API (reuse logic) ─────────────────────────────────
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) return res.status(500).json({ message: 'GEMINI_API_KEY not set.' });
+
+    const modelsToTry = ['gemini-2.0-flash', 'gemini-1.5-flash'];
+    let rawText = null;
+    let lastErr = null;
+
+    for (const modelName of modelsToTry) {
+      const url = `${GEMINI_BASE}/${modelName}:generateContent?key=${apiKey}`;
+      try {
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.7, maxOutputTokens: 4096 },
+          }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${data.error?.message}`);
+        rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        break;
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+
+    if (rawText === null) throw lastErr || new Error('All Gemini models failed');
+
+    // ── Parse & Save (reuse logic) ─────────────────────────────────────────
+    let parsed;
+    try {
+      const cleaned = rawText.replace(/```json|```/g, '').trim();
+      parsed = JSON.parse(cleaned);
+    } catch (parseErr) {
+      return res.status(500).json({ message: 'Gemini returned invalid JSON.', error: parseErr.message });
+    }
+
+    const valid = parsed
+      .map((item) => ({
+        level: normLevel,
+        source: 'ai',
+        subject: subject.trim(),
+        questionText: String(item.questionText || '').trim(),
+        options: Array.isArray(item.options) ? item.options.map(String) : [],
+        correctAnswer: String(item.correctAnswer || '').trim(),
+        correctIndex: Number(item.correctIndex ?? 0),
+      }))
+      .filter((d) => d.questionText && d.options.length >= 2 && d.correctAnswer);
+
+    if (valid.length === 0) return res.status(500).json({ message: 'No valid questions generated.' });
+
+    const TopicModel = getTopicModel(topic);
+    const created = await TopicModel.insertMany(valid);
+
+    return res.status(201).json({
+      message: `✅ ${created.length} RAG questions generated from PDF!`,
+      createdCount: created.length,
+      collection: collectionName,
+      questions: created,
+    });
+  } catch (err) {
+    console.error('RAG generation error:', err);
     return res.status(500).json({ message: 'Server error', error: err.message });
   }
 });

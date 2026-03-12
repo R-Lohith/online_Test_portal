@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { FcGoogle } from "react-icons/fc";
 import { signInWithGoogle, logOut } from "../config/firebase";
 import { useAuth } from "../hooks/useAuth";
+import { Eye, EyeOff } from "lucide-react";
+
 
 function Login() {
   const { user, loading: authLoading } = useAuth();
@@ -145,25 +147,6 @@ function Login() {
         />
 
         <div className="relative z-10 text-center text-white space-y-6 max-w-md">
-          {/* Logo */}
-          <div
-            style={{
-              width: "80px", height: "80px",
-              background: "rgba(255,255,255,0.15)",
-              borderRadius: "24px",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              margin: "0 auto",
-              backdropFilter: "blur(10px)",
-              border: "1px solid rgba(255,255,255,0.2)",
-              boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
-            }}
-          >
-            <svg width="40" height="40" fill="none" stroke="white" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-                d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-            </svg>
-          </div>
-
           <div>
             <h1 style={{ fontSize: "2.8rem", fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.02em" }}>
               BIT Test Portal
@@ -172,27 +155,6 @@ function Login() {
               Your gateway to smarter learning. Practice, compete, and excel.
             </p>
           </div>
-          {/* <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "8px" }}>
-            {[
-              { icon: "🎯", text: "Level-based MCQ Tests" },
-              { icon: "💻", text: "Live Code Editor" },
-              { icon: "📊", text: "Detailed Performance Analytics" },
-            ].map((f, i) => (
-              <div
-                key={i}
-                style={{
-                  display: "flex", alignItems: "center", gap: "12px",
-                  background: "rgba(255,255,255,0.1)",
-                  borderRadius: "12px", padding: "12px 16px",
-                  backdropFilter: "blur(8px)",
-                  border: "1px solid rgba(255,255,255,0.15)",
-                }}
-              >
-                <span style={{ fontSize: "1.3rem" }}>{f.icon}</span>
-                <span style={{ fontWeight: 500, opacity: 0.95 }}>{f.text}</span>
-              </div>
-            ))}
-          </div>*/}
         </div>
       </div>
       <div
@@ -349,7 +311,7 @@ function Login() {
                       color: "#94a3b8", fontSize: "1.1rem",
                     }}
                   >
-                    {showPassword ? "🙈" : "👁️"}
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
                 </div>
               </div>

@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { Eye, EyeOff } from "lucide-react";
+
 
 function AdminLogin() {
     const { user, loading: authLoading } = useAuth();
@@ -271,7 +273,7 @@ function AdminLogin() {
                                         color: "rgba(255,255,255,0.4)", fontSize: "1.1rem",
                                     }}
                                 >
-                                    {showPassword ? "🙈" : "👁️"}
+                                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                                 </button>
                             </div>
                         </div>

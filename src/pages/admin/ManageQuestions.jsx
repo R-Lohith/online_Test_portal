@@ -116,6 +116,7 @@ const ManageQuestions = () => {
   // AI form
   const [af, setAf] = useState({ topic: '', subject: '', level: 'easy', count: 5 });
 
+
   // ── Load topics ───────────────────────────────────────────────────────────
   const loadTopics = useCallback(async () => {
     setTopicsLoading(true);
@@ -211,6 +212,7 @@ const ManageQuestions = () => {
     } catch (err) { setToast({ type: 'error', title: 'Network Error', message: err.message }); }
     setLoading(false);
   };
+
 
   // ── Delete question ────────────────────────────────────────────────────────
   const handleDelete = async (qid, topicCol) => {
@@ -512,6 +514,8 @@ const ManageQuestions = () => {
                 )}
               </div>
             )}
+
+
           </>
         )}
       </div>

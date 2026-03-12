@@ -13,6 +13,7 @@ import ManageQuestions from "./pages/admin/ManageQuestions";
 import StudentDashboard from "./pages/student/StudentDashboard";
 import TestInterface from "./pages/student/TestInterface";
 import StudentMCQ from "./pages/student/StudentMCQ";
+import TopicTestPage from "./pages/student/TopicTestPage";
 import "./index.css";
 
 /**
@@ -35,7 +36,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/admin/login" element={<AdminLogin />} />
 
-        {/* ─── STUDENT ROUTES ──────────────────────────────────────────── */}
+        {/* ─── STUDENT ROUTES (with sidebar Layout) ────────────────────── */}
         <Route
           element={
             <ProtectedRoute role="student">
@@ -45,13 +46,23 @@ function App() {
         >
           <Route path="/dashboard" element={<StudentDashboard />} />
           <Route path="/mcq-tests" element={<MCQTests />} />
-          <Route path="/code-editor" element={<CodeEditor />} />
+          <Route path="/mcq-tests/:topicKey" element={<TopicTestPage />} />
           <Route path="/results" element={<Results />} />
           <Route path="/student/test/:level" element={<TestInterface />} />
           <Route path="/student/mcq" element={<StudentMCQ />} />
           {/* Alias */}
           <Route path="/student/dashboard" element={<Navigate to="/dashboard" replace />} />
         </Route>
+
+        {/* ─── CODE EDITOR — full-page, no sidebar ─────────────────────── */}
+        <Route
+          path="/code-editor"
+          element={
+            <ProtectedRoute role="student">
+              <CodeEditor />
+            </ProtectedRoute>
+          }
+        />
 
         {/* ─── ADMIN ROUTES ────────────────────────────────────────────── */}
         <Route
