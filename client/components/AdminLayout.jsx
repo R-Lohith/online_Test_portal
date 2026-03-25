@@ -1,12 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
-    Settings,
     Menu,
     X,
     LogOut,
-    FileText,
-    Users,
     Award,
     TrendingUp
 } from 'lucide-react';
