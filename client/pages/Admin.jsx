@@ -13,15 +13,23 @@ const Admin = () => {
   const [loadingTopics, setLoadingTopics] = useState(true);
 
   useEffect(() => {
-    const mockTopics = [
-      { collectionName: "javascript_basics", displayName: "JavaScript Basics", total: 10, levels: [{ level: "easy", count: 5 }, { level: "medium", count: 3 }, { level: "hard", count: 2 }] },
-      { collectionName: "react_fundamentals", displayName: "React Fundamentals", total: 8, levels: [{ level: "easy", count: 3 }, { level: "medium", count: 5 }] },
-      { collectionName: "css_advanced", displayName: "Advanced CSS", total: 5, levels: [{ level: "hard", count: 5 }] }
-    ];
-    
-    new Promise(resolve => setTimeout(() => resolve(mockTopics), 500))
+    const apiUrl = import.meta.env.VITE_API_URL;
+    if (!apiUrl) {
+      console.error("[Admin] VITE_API_URL is not set!");
+      setLoadingTopics(false);
+      return;
+    }
+    const endpoint = `${apiUrl}/api/mcq/topics`;
+    console.log("[Admin] GET", endpoint);
+
+    fetch(endpoint)
+      .then(async (res) => {
+        if (res.status === 404) throw new Error("API endpoint not found (404)");
+        if (!res.ok) throw new Error(`Server error: ${res.status}`);
+        return res.json();
+      })
       .then((d) => setTopics(Array.isArray(d) ? d : []))
-      .catch(() => setTopics([]))
+      .catch((err) => { console.error("[Admin] Topics fetch error:", err.message); setTopics([]); })
       .finally(() => setLoadingTopics(false));
   }, []);
 

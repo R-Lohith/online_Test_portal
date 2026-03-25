@@ -63,19 +63,21 @@ const TopicTestPage = () => {
         setLoading(true);
         setError('');
         try {
-            // Mock questions data
-            const mockQuestions = [
-                { _id: 'q1', questionText: 'What is the output of 2 + 2?', options: ['3', '4', '5', '6'], correctAnswer: '4' },
-                { _id: 'q2', questionText: 'Which keyword is used to declare a block-scoped variable?', options: ['var', 'let', 'const', 'both let and const'], correctAnswer: 'both let and const' },
-                { _id: 'q3', questionText: 'What does DOM stand for?', options: ['Document Object Model', 'Data Object Model', 'Document Oriented Model', 'Data Oriented Model'], correctAnswer: 'Document Object Model' },
-                { _id: 'q4', questionText: 'Is JavaScript statically typed?', options: ['Yes', 'No', 'Sometimes', 'Partially'], correctAnswer: 'No' },
-                { _id: 'q5', questionText: 'Which function is used to serialize an object into a JSON string?', options: ['JSON.parse()', 'JSON.stringify()', 'JSON.serialize()', 'JSON.toString()'], correctAnswer: 'JSON.stringify()' }
-            ];
+            const apiUrl = import.meta.env.VITE_API_URL;
+            if (!apiUrl) throw new Error('API URL is not configured. Check VITE_API_URL env variable.');
 
-            const simulateFetch = () => new Promise(resolve => setTimeout(() => resolve({ ok: true, json: () => Promise.resolve(mockQuestions) }), 500));
-            const res = await simulateFetch();
+            const endpoint = `${apiUrl}/api/mcq/questions?topic=${encodeURIComponent(topicKey)}&level=${encodeURIComponent(level)}`;
+            console.log('[TopicTestPage] GET', endpoint);
+
+            const res = await fetch(endpoint);
+
+            if (res.status === 404) {
+                throw new Error('API endpoint not found (404). Check backend route /api/mcq/questions.');
+            }
+            if (!res.ok) throw new Error(`Server error: ${res.status}`);
+
             const data = await res.json();
-            
+
             if (!Array.isArray(data) || data.length === 0) {
                 setError('No questions found for this topic and level.');
                 setQuestions([]);
@@ -84,7 +86,8 @@ const TopicTestPage = () => {
                 setTimerOn(true);
             }
         } catch (err) {
-            setError('Failed to load questions. Please try again.');
+            console.error('[TopicTestPage] fetchQuestions error:', err.message);
+            setError(err.message || 'Failed to load questions. Please try again.');
         }
         setLoading(false);
     }, [topicKey, level]);

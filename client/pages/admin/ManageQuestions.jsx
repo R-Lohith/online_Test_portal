@@ -121,12 +121,19 @@ const ManageQuestions = () => {
   const loadTopics = useCallback(async () => {
     setTopicsLoading(true);
     try {
-      const mockTopics = [
-        { collectionName: "javascript_basics", displayName: "JavaScript Basics", total: 10, levels: [{ level: "easy", count: 5 }, { level: "medium", count: 3 }, { level: "hard", count: 2 }] }
-      ];
-      await new Promise(r => setTimeout(r, 300));
-      setTopics(mockTopics);
-    } catch { setTopics([]); }
+      const apiUrl = import.meta.env.VITE_API_URL;
+      if (!apiUrl) throw new Error("VITE_API_URL is not set");
+      const endpoint = `${apiUrl}/api/mcq/topics`;
+      console.log("[ManageQuestions] GET", endpoint);
+      const res = await fetch(endpoint);
+      if (res.status === 404) throw new Error("API endpoint not found (404)");
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
+      const data = await res.json();
+      setTopics(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("[ManageQuestions] loadTopics error:", err.message);
+      setTopics([]);
+    }
     setTopicsLoading(false);
   }, []);
 
@@ -135,14 +142,20 @@ const ManageQuestions = () => {
     if (!topicName) { setQuestions([]); return; }
     setQLoading(true);
     try {
-      const mockQs = [
-        { _id: 'q1', level: 'easy', source: 'manual', questionText: 'What is JavaScript?', options: ['Language', 'Car', 'Food', 'Planet'], correctAnswer: 'Language' },
-        { _id: 'q2', level: 'medium', source: 'ai', questionText: 'Output of 1 + "1"?', options: ['2', '"11"', '"2"', 'NaN'], correctAnswer: '"11"' }
-      ];
-      const filtered = level ? mockQs.filter(q => q.level === level) : mockQs;
-      await new Promise(r => setTimeout(r, 300));
-      setQuestions(filtered);
-    } catch { setQuestions([]); }
+      const apiUrl = import.meta.env.VITE_API_URL;
+      if (!apiUrl) throw new Error("VITE_API_URL is not set");
+      const qs = level ? `?topic=${encodeURIComponent(topicName)}&level=${level}` : `?topic=${encodeURIComponent(topicName)}`;
+      const endpoint = `${apiUrl}/api/mcq/questions${qs}`;
+      console.log("[ManageQuestions] GET", endpoint);
+      const res = await fetch(endpoint);
+      if (res.status === 404) throw new Error("API endpoint not found (404)");
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
+      const data = await res.json();
+      setQuestions(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("[ManageQuestions] loadQuestions error:", err.message);
+      setQuestions([]);
+    }
     setQLoading(false);
   }, []);
 
@@ -167,7 +180,25 @@ const ManageQuestions = () => {
     }
     setLoading(true);
     try {
-      await new Promise(r => setTimeout(r, 500));
+      const apiUrl = import.meta.env.VITE_API_URL;
+      if (!apiUrl) throw new Error("VITE_API_URL is not set");
+      const endpoint = `${apiUrl}/api/mcq/manual`;
+      console.log("[ManageQuestions] POST", endpoint);
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topic: mf.topic,
+          subject: mf.subject,
+          level: mf.level,
+          questionText: mf.questionText,
+          options: mf.options.filter(Boolean),
+          correctAnswer: mf.correctAnswer,
+        }),
+      });
+      if (res.status === 404) throw new Error("API endpoint not found (404). Please contact support.");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to save question");
       setToast({
         type: 'success',
         title: '✅ Question Saved!',
@@ -175,7 +206,10 @@ const ManageQuestions = () => {
       });
       resetManual();
       loadTopics();
-    } catch (err) { setToast({ type: 'error', title: 'Network Error', message: err.message }); }
+    } catch (err) {
+      console.error("[ManageQuestions] manual submit error:", err.message);
+      setToast({ type: 'error', title: 'Error', message: err.message });
+    }
     setLoading(false);
   };
 
@@ -189,15 +223,29 @@ const ManageQuestions = () => {
     setLoading(true);
     setToast({ type: 'loading', title: '🤖 Gemini is generating…', message: `Creating ${af.count} "${af.level}" level questions for topic "${af.topic}"…` });
     try {
-      await new Promise(r => setTimeout(r, 1000));
+      const apiUrl = import.meta.env.VITE_API_URL;
+      if (!apiUrl) throw new Error("VITE_API_URL is not set");
+      const endpoint = `${apiUrl}/api/mcq/ai`;
+      console.log("[ManageQuestions] POST", endpoint);
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ topic: af.topic, subject: af.subject, level: af.level, count: af.count }),
+      });
+      if (res.status === 404) throw new Error("API endpoint not found (404). Please contact support.");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "AI generation failed");
       setToast({
         type: 'success',
         title: '🎉 AI Questions Generated!',
-        message: `${af.count} questions saved to MongoDB collection "${af.topic}" (${af.level} level).`,
+        message: data.message || `Questions saved to collection "${af.topic}" (${af.level} level).`,
       });
       setAf(f => ({ ...f, topic: '', subject: '' }));
       loadTopics();
-    } catch (err) { setToast({ type: 'error', title: 'Network Error', message: err.message }); }
+    } catch (err) {
+      console.error("[ManageQuestions] AI generate error:", err.message);
+      setToast({ type: 'error', title: 'Error', message: err.message });
+    }
     setLoading(false);
   };
 
@@ -205,11 +253,20 @@ const ManageQuestions = () => {
   const handleDelete = async (qid, topicCol) => {
     if (!window.confirm('Delete this question?')) return;
     try {
-      await new Promise(r => setTimeout(r, 200));
+      const apiUrl = import.meta.env.VITE_API_URL;
+      if (!apiUrl) throw new Error("VITE_API_URL is not set");
+      const endpoint = `${apiUrl}/api/mcq/questions/${encodeURIComponent(topicCol)}/${qid}`;
+      console.log("[ManageQuestions] DELETE", endpoint);
+      const res = await fetch(endpoint, { method: "DELETE" });
+      if (res.status === 404) throw new Error("Question not found (404)");
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
       setQuestions(qs => qs.filter(q => q._id !== qid));
       setToast({ type: 'success', title: 'Deleted', message: 'Question removed from the collection.' });
       loadTopics();
-    } catch (err) { setToast({ type: 'error', title: 'Error', message: err.message }); }
+    } catch (err) {
+      console.error("[ManageQuestions] delete error:", err.message);
+      setToast({ type: 'error', title: 'Error', message: err.message });
+    }
   };
 
   // ── Tabs config ────────────────────────────────────────────────────────────

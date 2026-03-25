@@ -31,35 +31,24 @@ const MCQTests = () => {
     setLoading(true);
     setError('');
     try {
-      const mockTopics = [
-        {
-          collectionName: "javascript_basics",
-          displayName: "JavaScript Basics",
-          total: 10,
-          levels: [{ level: "easy", count: 5 }, { level: "medium", count: 3 }, { level: "hard", count: 2 }]
-        },
-        {
-          collectionName: "react_fundamentals",
-          displayName: "React Fundamentals",
-          total: 8,
-          levels: [{ level: "easy", count: 3 }, { level: "medium", count: 5 }]
-        },
-        {
-          collectionName: "css_advanced",
-          displayName: "Advanced CSS",
-          total: 5,
-          levels: [{ level: "hard", count: 5 }]
-        }
-      ];
+      const apiUrl = import.meta.env.VITE_API_URL;
+      if (!apiUrl) throw new Error('API URL is not configured. Check VITE_API_URL env variable.');
 
-      const simulateFetch = () =>
-        new Promise(resolve => setTimeout(() => resolve({ ok: true, json: () => Promise.resolve(mockTopics) }), 500));
+      const endpoint = `${apiUrl}/api/mcq/topics`;
+      console.log('[MCQTests] GET', endpoint);
 
-      const res = await simulateFetch();
+      const res = await fetch(endpoint);
+
+      if (res.status === 404) {
+        throw new Error('API endpoint not found (404). Check backend route /api/mcq/topics.');
+      }
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
+
       const data = await res.json();
       setTopics(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError('Could not load topics.');
+      console.error('[MCQTests] fetchTopics error:', err.message);
+      setError(err.message || 'Could not load topics.');
     }
     setLoading(false);
   }, []);

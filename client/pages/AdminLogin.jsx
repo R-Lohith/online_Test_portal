@@ -27,17 +27,23 @@ function AdminLogin() {
         const password = e.target.password.value;
 
         try {
-            // Mock admin login
-            const simulateLogin = async (user, pass) => {
-                if ((user === "admin" && pass === "admin123") || (user === "master" && pass === "masterpassword123") || (user === "master@portal.com" && pass === "masterpassword123")) {
-                    return { ok: true, data: { token: "mock-admin-token", role: "admin", userId: "mock-admin-id" } };
-                }
-                return { ok: false, data: { message: "Invalid credentials. Use admin/admin123" } };
-            };
+            const apiUrl = import.meta.env.VITE_API_URL;
+            if (!apiUrl) throw new Error("API URL is not configured. Check VITE_API_URL env variable.");
 
-            const res = await simulateLogin(username, password);
-            const data = res.data;
+            const endpoint = `${apiUrl}/api/auth/login`;
+            console.log("[AdminLogin] POST", endpoint);
 
+            const res = await fetch(endpoint, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username, password }),
+            });
+
+            if (res.status === 404) {
+                throw new Error("API endpoint not found (404). Please contact support.");
+            }
+
+            const data = await res.json();
             if (!res.ok) throw new Error(data.message || "Invalid credentials");
 
             if (data.role !== "admin") {
@@ -46,11 +52,12 @@ function AdminLogin() {
 
             localStorage.setItem("token", data.token);
             localStorage.setItem("role", data.role);
-            localStorage.setItem("userId", data.userId || "");
-            localStorage.setItem("username", username);  // ← saves name for welcome message
+            localStorage.setItem("userId", String(data.userId || ""));
+            localStorage.setItem("username", data.username || username);
 
             navigate("/admin");
         } catch (err) {
+            console.error("[AdminLogin] Error:", err.message);
             setError(err.message);
         } finally {
             setLoading(false);
@@ -68,19 +75,29 @@ function AdminLogin() {
         const role = "admin";
 
         try {
-            // Mock admin register
-            const simulateRegister = async (user, mail, pass, r) => {
-                return { ok: true, data: { message: "Admin account created successfully" } };
-            };
+            const apiUrl = import.meta.env.VITE_API_URL;
+            if (!apiUrl) throw new Error("API URL is not configured. Check VITE_API_URL env variable.");
 
-            const res = await simulateRegister(username, email, password, role);
-            const data = res.data;
+            const endpoint = `${apiUrl}/api/auth/register`;
+            console.log("[AdminSignup] POST", endpoint);
 
+            const res = await fetch(endpoint, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username, email, password, role: "admin" }),
+            });
+
+            if (res.status === 404) {
+                throw new Error("API endpoint not found (404). Please contact support.");
+            }
+
+            const data = await res.json();
             if (!res.ok) throw new Error(data.message || "Signup failed");
 
             alert("Admin account created successfully! Please login.");
             setIsSignup(false);
         } catch (err) {
+            console.error("[AdminSignup] Error:", err.message);
             setError(err.message);
         } finally {
             setLoading(false);

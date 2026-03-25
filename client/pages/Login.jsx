@@ -35,19 +35,23 @@ function Login() {
     }
 
     try {
-      // Mock login simulation
-      const simulateLogin = async (user, pass) => {
-        if ((user === "student" && pass === "student123") || (user === "master" && pass === "masterpassword123") || (user === "master@portal.com" && pass === "masterpassword123")) {
-          return { ok: true, data: { token: "mock-student-token", role: "student", userId: "mock-student-id" } };
-        } else if (user === "admin" && pass === "admin123") {
-          return { ok: true, data: { token: "mock-admin-token", role: "admin", userId: "mock-admin-id" } };
-        }
-        return { ok: false, data: { message: "Invalid credentials. Use student/student123" } };
-      };
+      const apiUrl = import.meta.env.VITE_API_URL;
+      if (!apiUrl) throw new Error("API URL is not configured. Check VITE_API_URL env variable.");
 
-      const res = await simulateLogin(username, password);
-      const data = res.data;
-      
+      const endpoint = `${apiUrl}/api/auth/login`;
+      console.log("[Login] POST", endpoint);
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+
+      if (res.status === 404) {
+        throw new Error("API endpoint not found (404). Please contact support.");
+      }
+
+      const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Invalid credentials");
 
       if (data.role === "admin") {
@@ -56,10 +60,11 @@ function Login() {
 
       localStorage.setItem("token", data.token);
       localStorage.setItem("role", data.role);
-      localStorage.setItem("userId", data.userId);
+      localStorage.setItem("userId", String(data.userId || ""));
 
       navigate("/dashboard");
     } catch (err) {
+      console.error("[Login] Error:", err.message);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -76,19 +81,29 @@ function Login() {
     const password = e.target.password?.value;
 
     try {
-      // Mock register simulation
-      const simulateRegister = async (user, mail, pass) => {
-        return { ok: true, data: { message: "Signup successful" } };
-      };
+      const apiUrl = import.meta.env.VITE_API_URL;
+      if (!apiUrl) throw new Error("API URL is not configured. Check VITE_API_URL env variable.");
 
-      const res = await simulateRegister(username, email, password);
-      const data = res.data;
-      
+      const endpoint = `${apiUrl}/api/auth/register`;
+      console.log("[Signup] POST", endpoint);
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, email, password, role: "student" }),
+      });
+
+      if (res.status === 404) {
+        throw new Error("API endpoint not found (404). Please contact support.");
+      }
+
+      const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Signup failed");
 
       alert("Account created successfully! Please login.");
       setIsSignup(false);
     } catch (err) {
+      console.error("[Signup] Error:", err.message);
       setError(err.message);
     } finally {
       setLoading(false);
