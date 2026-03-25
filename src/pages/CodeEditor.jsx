@@ -295,53 +295,102 @@ function twoSum(nums, target) {
   },
 ];
 
-// ── Real JS execution engine with console.log capture ────────────────────────
-function executeCode(code, problem, submitAll) {
-  const toRun = submitAll ? problem.testCases : problem.testCases.filter(t => t.visible);
-  const results = [];
-  let fn;
+// ── Real JS execution engine with Web Worker to prevent infinite loops ─────────
+function executeCodeWorker(code, problem, submitAll) {
+  return new Promise((resolve) => {
+    const toRun = submitAll ? problem.testCases : problem.testCases.filter(t => t.visible);
+    
+    const workerScript = `
+      self.onmessage = function(e) {
+        const { code, fnName, toRun } = e.data;
+        const results = [];
+        let logs = [];
+        const origLog = console.log;
+        console.log = (...args) => {
+          let s = '';
+          try {
+            s = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+          } catch(e) { s = String(args); }
+          logs.push(s);
+        };
 
-  // Capture all console.log calls
-  const logs = [];
-  const origLog = console.log;
-  console.log = (...args) => logs.push(args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' '));
+        let fn;
+        try {
+          const _module = { exports: {} };
+          const _exports = _module.exports;
+          const _require = () => { throw new Error('require() is not available'); };
+          const _factory = new Function('module', 'exports', 'require', 
+            code + '\\\\nreturn (typeof ' + fnName + ' === "function" ? ' + fnName + ' : undefined);'
+          );
+          fn = _factory(_module, _exports, _require);
+          if (typeof fn !== 'function') throw new Error('Function "' + fnName + '" not found. Make sure it is declared with that exact name.');
+        } catch(err) {
+          self.postMessage({ compileError: err.message, results: toRun.map((tc, i) => ({ id: i + 1, passed: false, visible: tc.visible, error: err.message })), logs });
+          return;
+        }
 
-  try {
-    // Provide safe CommonJS mocks so code that accidentally references
-    // module / exports / require doesn't crash in the browser ESM context.
-    const _module = { exports: {} };
-    const _exports = _module.exports;
-    const _require = () => { throw new Error('require() is not available — use ES module syntax'); };
-    // eslint-disable-next-line no-new-func
-    const _factory = new Function('module', 'exports', 'require',
-      `${code}\nreturn (typeof ${problem.fnName} === 'function' ? ${problem.fnName} : undefined);`
-    );
-    fn = _factory(_module, _exports, _require);
-    if (typeof fn !== 'function') throw new Error(`Function "${problem.fnName}" not found. Make sure it's declared with that exact name.`);
-  } catch (err) {
-    console.log = origLog;
-    return { compileError: err.message, results: toRun.map((tc, i) => ({ id: i + 1, passed: false, visible: tc.visible, error: err.message })), logs };
-  }
+        for (let i = 0; i < toRun.length; i++) {
+          const tc = toRun[i];
+          const inputCopy = JSON.parse(JSON.stringify(tc.input));
+          const t0 = performance.now();
+          let got, error = null;
+          try { got = fn(...inputCopy); }
+          catch (e) { error = e.message; }
+          const ms = (performance.now() - t0).toFixed(1);
+          // Only send back stringified got or safe objects to avoid cloning issues
+          let safeGot = got;
+          try { JSON.stringify(got); } catch(e) { safeGot = String(got); }
+          results.push({ id: i + 1, got: safeGot, error: error, ms: ms, visible: tc.visible, expected: tc.expected });
+        }
+        self.postMessage({ compileError: null, results, logs });
+      };
+    `;
+    
+    const blob = new Blob([workerScript], { type: 'application/javascript' });
+    const url = URL.createObjectURL(blob);
+    const worker = new Worker(url);
+    
+    const timeout = setTimeout(() => {
+      worker.terminate();
+      resolve({
+        compileError: 'Execution Timed Out (Possible Infinite Loop)',
+        results: toRun.map((tc, i) => ({ id: i + 1, passed: false, visible: tc.visible, error: 'Timeout' })),
+        logs: []
+      });
+      URL.revokeObjectURL(url);
+    }, 2000); // 2 second timeout
 
-  for (let i = 0; i < toRun.length; i++) {
-    const tc = toRun[i];
-    const inputCopy = JSON.parse(JSON.stringify(tc.input));
-    const t0 = performance.now();
-    let got, error;
-    try { got = fn(...inputCopy); }
-    catch (e) { error = e.message; }
-    const ms = (performance.now() - t0).toFixed(1);
-    results.push({ id: problem.testCases.indexOf(tc) + 1, passed: error ? false : problem.compare(got, tc.expected), visible: tc.visible, got, expected: tc.expected, error, ms });
-  }
+    worker.onmessage = (e) => {
+      clearTimeout(timeout);
+      const data = e.data;
+      if (!data.compileError) {
+        for (let i = 0; i < data.results.length; i++) {
+          const r = data.results[i];
+          if (!r.error) {
+            try { r.passed = problem.compare(r.got, r.expected); }
+            catch(err) { r.passed = false; r.error = 'Comparison Error: ' + err.message; }
+          } else {
+            r.passed = false;
+          }
+        }
+      }
+      resolve(data);
+      worker.terminate();
+      URL.revokeObjectURL(url);
+    };
 
-  console.log = origLog;
-  return { compileError: null, results, logs };
+    worker.postMessage({ code, fnName: problem.fnName, toRun });
+  });
 }
 
 // ── UI constants ──────────────────────────────────────────────────────────────
 const DC = { Easy: '#22c55e', Medium: '#eab308', Hard: '#ef4444' };
 const DB = { Easy: '#052e16', Medium: '#422006', Hard: '#450a0a' };
-const fmt = v => JSON.stringify(v);
+const fmt = v => {
+  if (v === undefined) return 'undefined';
+  try { return JSON.stringify(v); }
+  catch(e) { return String(v); }
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 export default function CodeEditor() {
@@ -377,33 +426,30 @@ export default function CodeEditor() {
   const selectProblem = id => { setActiveId(id); setResult(null); setPanel('desc'); };
   const switchLanguage = (langId) => { setLanguage(langId); setLangMenuOpen(false); setResult(null); };
 
-  const handleRun = () => {
+  const handleRun = async () => {
     if (language !== 'javascript') {
       setPanel('result');
       setResult({ __langNote: true, mode: 'run', lang: langMeta.label });
       return;
     }
     setRunning(true); setPanel('result');
-    setTimeout(() => {
-      setResult({ ...executeCode(code, prob, false), mode: 'run' });
-      setRunning(false);
-    }, 500);
+    const res = await executeCodeWorker(code, prob, false);
+    setResult({ ...res, mode: 'run' });
+    setRunning(false);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (language !== 'javascript') {
       setPanel('result');
       setResult({ __langNote: true, mode: 'submit', lang: langMeta.label });
       return;
     }
     setSubmit(true); setPanel('result');
-    setTimeout(() => {
-      const res = executeCode(code, prob, true);
-      setResult({ ...res, mode: 'submit' });
-      const allPass = !res.compileError && res.results.every(r => r.passed);
-      setSolved(s => ({ ...s, [activeId]: allPass ? 'ac' : 'wa' }));
-      setSubmit(false);
-    }, 700);
+    const res = await executeCodeWorker(code, prob, true);
+    setResult({ ...res, mode: 'submit' });
+    const allPass = !res.compileError && res.results.every(r => r.passed);
+    setSolved(s => ({ ...s, [activeId]: allPass ? 'ac' : 'wa' }));
+    setSubmit(false);
   };
 
   const filtered = filter === 'All' ? PROBLEMS : PROBLEMS.filter(p => p.difficulty === filter);
