@@ -19,7 +19,14 @@ const StudentDashboard = () => {
                     return;
                 }
 
-                const response = await fetch(`http://localhost:5000/api/student/${userId}/profile`);
+                const mockProfile = {
+                    currentLevel: "Medium",
+                    unlockedLevels: ["Easy", "Medium", "Hard"]
+                };
+
+                const simulateFetchProfile = () => new Promise(resolve => setTimeout(() => resolve({ ok: true, json: () => Promise.resolve(mockProfile) }), 500));
+                
+                const response = await simulateFetchProfile();
                 if (response.ok) {
                     const data = await response.json();
                     setStudentProfile(data);

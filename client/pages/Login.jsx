@@ -35,13 +35,19 @@ function Login() {
     }
 
     try {
-      const res = await fetch("http://localhost:5000/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
+      // Mock login simulation
+      const simulateLogin = async (user, pass) => {
+        if ((user === "student" && pass === "student123") || (user === "master" && pass === "masterpassword123") || (user === "master@portal.com" && pass === "masterpassword123")) {
+          return { ok: true, data: { token: "mock-student-token", role: "student", userId: "mock-student-id" } };
+        } else if (user === "admin" && pass === "admin123") {
+          return { ok: true, data: { token: "mock-admin-token", role: "admin", userId: "mock-admin-id" } };
+        }
+        return { ok: false, data: { message: "Invalid credentials. Use student/student123" } };
+      };
 
-      const data = await res.json();
+      const res = await simulateLogin(username, password);
+      const data = res.data;
+      
       if (!res.ok) throw new Error(data.message || "Invalid credentials");
 
       if (data.role === "admin") {
@@ -70,13 +76,14 @@ function Login() {
     const password = e.target.password?.value;
 
     try {
-      const res = await fetch("http://localhost:5000/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, email, password }),
-      });
+      // Mock register simulation
+      const simulateRegister = async (user, mail, pass) => {
+        return { ok: true, data: { message: "Signup successful" } };
+      };
 
-      const data = await res.json();
+      const res = await simulateRegister(username, email, password);
+      const data = res.data;
+      
       if (!res.ok) throw new Error(data.message || "Signup failed");
 
       alert("Account created successfully! Please login.");

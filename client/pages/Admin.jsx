@@ -13,8 +13,13 @@ const Admin = () => {
   const [loadingTopics, setLoadingTopics] = useState(true);
 
   useEffect(() => {
-    fetch('/api/mcq/topics')
-      .then((r) => r.json())
+    const mockTopics = [
+      { collectionName: "javascript_basics", displayName: "JavaScript Basics", total: 10, levels: [{ level: "easy", count: 5 }, { level: "medium", count: 3 }, { level: "hard", count: 2 }] },
+      { collectionName: "react_fundamentals", displayName: "React Fundamentals", total: 8, levels: [{ level: "easy", count: 3 }, { level: "medium", count: 5 }] },
+      { collectionName: "css_advanced", displayName: "Advanced CSS", total: 5, levels: [{ level: "hard", count: 5 }] }
+    ];
+    
+    new Promise(resolve => setTimeout(() => resolve(mockTopics), 500))
       .then((d) => setTopics(Array.isArray(d) ? d : []))
       .catch(() => setTopics([]))
       .finally(() => setLoadingTopics(false));

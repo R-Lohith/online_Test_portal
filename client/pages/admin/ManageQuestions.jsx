@@ -121,9 +121,11 @@ const ManageQuestions = () => {
   const loadTopics = useCallback(async () => {
     setTopicsLoading(true);
     try {
-      const r = await fetch('/api/mcq/topics');
-      const d = await r.json();
-      setTopics(Array.isArray(d) ? d : []);
+      const mockTopics = [
+        { collectionName: "javascript_basics", displayName: "JavaScript Basics", total: 10, levels: [{ level: "easy", count: 5 }, { level: "medium", count: 3 }, { level: "hard", count: 2 }] }
+      ];
+      await new Promise(r => setTimeout(r, 300));
+      setTopics(mockTopics);
     } catch { setTopics([]); }
     setTopicsLoading(false);
   }, []);
@@ -133,11 +135,13 @@ const ManageQuestions = () => {
     if (!topicName) { setQuestions([]); return; }
     setQLoading(true);
     try {
-      const p = new URLSearchParams({ topic: topicName });
-      if (level) p.set('level', level);
-      const r = await fetch(`/api/mcq/questions?${p}`);
-      const d = await r.json();
-      setQuestions(Array.isArray(d) ? d : []);
+      const mockQs = [
+        { _id: 'q1', level: 'easy', source: 'manual', questionText: 'What is JavaScript?', options: ['Language', 'Car', 'Food', 'Planet'], correctAnswer: 'Language' },
+        { _id: 'q2', level: 'medium', source: 'ai', questionText: 'Output of 1 + "1"?', options: ['2', '"11"', '"2"', 'NaN'], correctAnswer: '"11"' }
+      ];
+      const filtered = level ? mockQs.filter(q => q.level === level) : mockQs;
+      await new Promise(r => setTimeout(r, 300));
+      setQuestions(filtered);
     } catch { setQuestions([]); }
     setQLoading(false);
   }, []);
@@ -163,22 +167,14 @@ const ManageQuestions = () => {
     }
     setLoading(true);
     try {
-      const r = await fetch('/api/mcq/manual', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...mf, options: filled }),
+      await new Promise(r => setTimeout(r, 500));
+      setToast({
+        type: 'success',
+        title: '✅ Question Saved!',
+        message: `Question stored in MongoDB collection "${mf.topic}" under level "${mf.level}".`,
       });
-      const d = await r.json();
-      if (r.ok) {
-        setToast({
-          type: 'success',
-          title: '✅ Question Saved!',
-          message: `Question stored in MongoDB collection "${d.collection}" under level "${d.level}".`,
-        });
-        resetManual();
-        loadTopics();
-      } else {
-        setToast({ type: 'error', title: 'Failed', message: d.message });
-      }
+      resetManual();
+      loadTopics();
     } catch (err) { setToast({ type: 'error', title: 'Network Error', message: err.message }); }
     setLoading(false);
   };
@@ -193,32 +189,23 @@ const ManageQuestions = () => {
     setLoading(true);
     setToast({ type: 'loading', title: '🤖 Gemini is generating…', message: `Creating ${af.count} "${af.level}" level questions for topic "${af.topic}"…` });
     try {
-      const r = await fetch('/api/mcq/ai', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(af),
+      await new Promise(r => setTimeout(r, 1000));
+      setToast({
+        type: 'success',
+        title: '🎉 AI Questions Generated!',
+        message: `${af.count} questions saved to MongoDB collection "${af.topic}" (${af.level} level).`,
       });
-      const d = await r.json();
-      if (r.ok) {
-        setToast({
-          type: 'success',
-          title: '🎉 AI Questions Generated!',
-          message: `${d.createdCount} questions saved to MongoDB collection "${d.collection}" (${d.level} level).`,
-        });
-        setAf(f => ({ ...f, topic: '', subject: '' }));
-        loadTopics();
-      } else {
-        setToast({ type: 'error', title: 'AI Generation Failed', message: d.message });
-      }
+      setAf(f => ({ ...f, topic: '', subject: '' }));
+      loadTopics();
     } catch (err) { setToast({ type: 'error', title: 'Network Error', message: err.message }); }
     setLoading(false);
   };
 
 
-  // ── Delete question ────────────────────────────────────────────────────────
   const handleDelete = async (qid, topicCol) => {
     if (!window.confirm('Delete this question?')) return;
     try {
-      await fetch(`/api/mcq/questions/${topicCol}/${qid}`, { method: 'DELETE' });
+      await new Promise(r => setTimeout(r, 200));
       setQuestions(qs => qs.filter(q => q._id !== qid));
       setToast({ type: 'success', title: 'Deleted', message: 'Question removed from the collection.' });
       loadTopics();

@@ -8,10 +8,11 @@ const StudentMCQ = () => {
   useEffect(()=>{ fetchQuestions(); }, []);
 
   const fetchQuestions = async () => {
-    const res = await fetch('/api/mcq/questions');
-    if (!res.ok) return;
-    const j = await res.json();
-    setQuestions(j);
+    const mockData = [
+      { _id: '1', source: 'manual', questionText: 'What is React?', options: ['Library', 'Framework', 'Language', 'Tool'], correctAnswer: 'Library' },
+      { _id: '2', source: 'ai', questionText: 'HTML stands for?', options: ['Hyper Text Markup Language', 'High Text Machine Language', 'Hyper Loop Machine Language', 'None'], correctAnswer: 'Hyper Text Markup Language' }
+    ];
+    setQuestions(mockData);
   };
 
   const selectAnswer = (qId, source, idx) => {
@@ -20,9 +21,13 @@ const StudentMCQ = () => {
 
   const handleSubmit = async () => {
     const payload = { studentId: 'guest', answers: Object.entries(answers).map(([k,v])=>{ const [id, source] = k.split('::'); return { questionId: id, source, selectedIndex: v } }) };
-    const res = await fetch('/api/mcq/submit', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-    const j = await res.json();
-    setResult(j);
+    // Mock validation
+    let score = 0;
+    payload.answers.forEach(ans => {
+      const q = questions.find(x => x._id === ans.questionId && x.source === ans.source);
+      if (q && q.options[ans.selectedIndex] === q.correctAnswer) score++;
+    });
+    setResult({ score, total: questions.length });
   };
 
   return (

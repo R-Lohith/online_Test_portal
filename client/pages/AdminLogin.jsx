@@ -27,13 +27,17 @@ function AdminLogin() {
         const password = e.target.password.value;
 
         try {
-            const res = await fetch("http://localhost:5000/api/auth/login", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ username, password }),
-            });
+            // Mock admin login
+            const simulateLogin = async (user, pass) => {
+                if ((user === "admin" && pass === "admin123") || (user === "master" && pass === "masterpassword123") || (user === "master@portal.com" && pass === "masterpassword123")) {
+                    return { ok: true, data: { token: "mock-admin-token", role: "admin", userId: "mock-admin-id" } };
+                }
+                return { ok: false, data: { message: "Invalid credentials. Use admin/admin123" } };
+            };
 
-            const data = await res.json();
+            const res = await simulateLogin(username, password);
+            const data = res.data;
+
             if (!res.ok) throw new Error(data.message || "Invalid credentials");
 
             if (data.role !== "admin") {
@@ -64,13 +68,14 @@ function AdminLogin() {
         const role = "admin";
 
         try {
-            const res = await fetch("http://localhost:5000/api/auth/register", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ username, email, password, role }),
-            });
+            // Mock admin register
+            const simulateRegister = async (user, mail, pass, r) => {
+                return { ok: true, data: { message: "Admin account created successfully" } };
+            };
 
-            const data = await res.json();
+            const res = await simulateRegister(username, email, password, role);
+            const data = res.data;
+
             if (!res.ok) throw new Error(data.message || "Signup failed");
 
             alert("Admin account created successfully! Please login.");

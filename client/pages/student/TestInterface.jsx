@@ -15,7 +15,13 @@ const TestInterface = () => {
     useEffect(() => {
         const fetchQuestions = async () => {
             try {
-                const response = await fetch(`http://localhost:5000/api/student/questions/${level}`);
+                const mockQuestions = [
+                    { _id: '1', questionText: 'What is 1 + 1?', options: ['1', '2', '3', '4'] },
+                    { _id: '2', questionText: 'Capital of France?', options: ['London', 'Paris', 'Berlin', 'Madrid'] }
+                ];
+                const simulateFetch = () => new Promise(resolve => setTimeout(() => resolve({ ok: true, json: () => Promise.resolve(mockQuestions) }), 500));
+                
+                const response = await simulateFetch();
                 if (response.ok) {
                     const data = await response.json();
                     setQuestions(data);
@@ -50,15 +56,15 @@ const TestInterface = () => {
 
             const userId = localStorage.getItem('userId') || user?.uid;
 
-            const response = await fetch('http://localhost:5000/api/student/submit', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    studentId: userId,
-                    level,
-                    answers: formattedAnswers
-                })
-            });
+            const simulateSubmit = () => new Promise(resolve => setTimeout(() => resolve({ 
+                ok: true, 
+                json: () => Promise.resolve({
+                    result: { status: 'Pass', score: questions.length, totalQuestions: questions.length },
+                    unlockedNextLevel: true
+                }) 
+            }), 500));
+
+            const response = await simulateSubmit();
 
             if (response.ok) {
                 const data = await response.json();

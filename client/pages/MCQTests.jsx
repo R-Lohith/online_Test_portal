@@ -31,12 +31,35 @@ const MCQTests = () => {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('/api/mcq/topics');
-      if (!res.ok) throw new Error(`Server error ${res.status}`);
+      const mockTopics = [
+        {
+          collectionName: "javascript_basics",
+          displayName: "JavaScript Basics",
+          total: 10,
+          levels: [{ level: "easy", count: 5 }, { level: "medium", count: 3 }, { level: "hard", count: 2 }]
+        },
+        {
+          collectionName: "react_fundamentals",
+          displayName: "React Fundamentals",
+          total: 8,
+          levels: [{ level: "easy", count: 3 }, { level: "medium", count: 5 }]
+        },
+        {
+          collectionName: "css_advanced",
+          displayName: "Advanced CSS",
+          total: 5,
+          levels: [{ level: "hard", count: 5 }]
+        }
+      ];
+
+      const simulateFetch = () =>
+        new Promise(resolve => setTimeout(() => resolve({ ok: true, json: () => Promise.resolve(mockTopics) }), 500));
+
+      const res = await simulateFetch();
       const data = await res.json();
       setTopics(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError('Could not load topics. Make sure the server is running.');
+      setError('Could not load topics.');
     }
     setLoading(false);
   }, []);

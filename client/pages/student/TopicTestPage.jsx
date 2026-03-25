@@ -63,10 +63,19 @@ const TopicTestPage = () => {
         setLoading(true);
         setError('');
         try {
-            const url = `/api/mcq/questions?topic=${encodeURIComponent(topicKey)}&level=${level}`;
-            const res = await fetch(url);
-            if (!res.ok) throw new Error(`Server error ${res.status}`);
+            // Mock questions data
+            const mockQuestions = [
+                { _id: 'q1', questionText: 'What is the output of 2 + 2?', options: ['3', '4', '5', '6'], correctAnswer: '4' },
+                { _id: 'q2', questionText: 'Which keyword is used to declare a block-scoped variable?', options: ['var', 'let', 'const', 'both let and const'], correctAnswer: 'both let and const' },
+                { _id: 'q3', questionText: 'What does DOM stand for?', options: ['Document Object Model', 'Data Object Model', 'Document Oriented Model', 'Data Oriented Model'], correctAnswer: 'Document Object Model' },
+                { _id: 'q4', questionText: 'Is JavaScript statically typed?', options: ['Yes', 'No', 'Sometimes', 'Partially'], correctAnswer: 'No' },
+                { _id: 'q5', questionText: 'Which function is used to serialize an object into a JSON string?', options: ['JSON.parse()', 'JSON.stringify()', 'JSON.serialize()', 'JSON.toString()'], correctAnswer: 'JSON.stringify()' }
+            ];
+
+            const simulateFetch = () => new Promise(resolve => setTimeout(() => resolve({ ok: true, json: () => Promise.resolve(mockQuestions) }), 500));
+            const res = await simulateFetch();
             const data = await res.json();
+            
             if (!Array.isArray(data) || data.length === 0) {
                 setError('No questions found for this topic and level.');
                 setQuestions([]);
